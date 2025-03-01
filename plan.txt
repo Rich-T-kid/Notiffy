@@ -1,0 +1,15 @@
+Start out by defining what interfaces this project is going to need
+Interfaces should rely on other interfaces no actuall implementations
+
+Email (yahoo,gmail,ect)
+number(ios,andr,ect)
+calls(??)
+Timed notifcations
+Rety methods
+What is going to be the storage method for this info? (structured:sql or unstructured:mongoDB)
+Focus of this project is to make sure that non coding things arent a pain in the back like last time
+(docker, env varibles, venv files, non static IP addresses, connection issues) <- these should all be resolved at the start so we can focus on implementation and not configs
+try and get this done by wed night
+
+
+KEEP MAIN BRANCH CLEAN AFTER THIS COMMIT

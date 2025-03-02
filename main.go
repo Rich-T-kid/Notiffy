@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
+
 	// this package needs to always to be run first b4 all other custom packages
 
+	_ "github.com/Rich-T-kid/Notiffy/internal/Services" // this package needs to always to be run first b4 all other custom packages
+	services "github.com/Rich-T-kid/Notiffy/internal/Services"
 	_ "github.com/Rich-T-kid/Notiffy/internal/enviroment" // this package needs to always to be run first b4 all other custom packages
-	Logger "github.com/Rich-T-kid/Notiffy/internal/log"   // this package needs to always to be run first b4 all other custom packages
+	"github.com/Rich-T-kid/Notiffy/internal/log"
 )
 
 var (
@@ -14,8 +18,17 @@ var (
 )
 
 func main() {
-	Logger.Info("should output to terminal")
+	SMS := services.NewSMSNotification()
+	userInfo := &services.RegisterINFO{
+		Name:    "Test2",
+		Contact: 9239592375,
+		Tags:    []services.Tag{services.TagSMS, services.TagEmail},
+	}
 
-	Logger.Critical("Should output to file")
-	fmt.Println("vim-go")
+	err := SMS.Unregister(context.TODO(), userInfo, []services.Tag{"Email"})
+	if err != nil {
+		log.Critical(fmt.Sprintf("issue registering userid: Richard with SMS Notification service %v", err))
+	}
+	fmt.Println("errors: ", err)
+
 }

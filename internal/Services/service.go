@@ -12,22 +12,36 @@ type Tag string
 const (
 	TagSMS   = "SMS"
 	TagEmail = "Email"
+	TagSport = "Sports"
+	TagDance = "Dance"
 )
 
-type Filter func(ctx context.Context) bool // way to filter out who to notify
-type tags []Tag                            // assign user to sub categories, this can be used later for filtering
+var ValidTags = []Tag{
+	TagSMS,
+	TagEmail,
+	TagSport,
+	TagDance,
+}
 
+type Filter func(ctx context.Context, input ...interface{}) bool // way to filter out who to notify
+type tags []Tag                                                  // assign user to sub categories, this can be used later for filtering
+
+// Validator is any struct that has a Validate method. Used to validate its self that it has proper values that wont damage the database
+type Validator interface {
+	Validate(interface{}) (bool, error)
+}
 type UserService interface {
 	// Register adds a user to the service and associates them with the provided subcategory.
 	// If the user is already registered, they will be added to the new subcategory without duplication.
-	Register(ctx context.Context, userid string, subcategory []Tag) error
+	Register(ctx context.Context, userInfo Validator, subcategory []Tag) error
 
 	// Unregister removes a user from the service.
 	// If stripCategory is false, the user is fully unregistered from the service.
 	// If stripCategory is true, the user is only removed from the specified subcategories.
 	// Multiple subcategories can be provided as variadic arguments.
-	Unregister(ctx context.Context, userid string, stripCategory bool, subcategories []Tag) error
-
+	Unregister(ctx context.Context, userInfo Validator, subcategories []Tag) error
+	// updates details about user registations
+	UpdateRegistration(ctx context.Context, userInfo Validator, subcategories []Tag) error
 	// ListUsers retrieves a list of user IDs that match the provided filter criteria.
 	// The filter function can be used to filter users based on tags or other conditions.
 	ListUsers(filter Filter) ([]string, error)
@@ -40,7 +54,7 @@ type NotificationService interface {
 	Notify(ctx context.Context, body Messenger, filter Filter) (int, error)                       // send message body out to the users who fit the criterial
 	SendDirectMessage(ctx context.Context, body Messenger, from string, recipient []string) error // is directly to another user/service
 
-	Validate() (bool, error) // Implentation specifc validation that checks weather the current notifcation is good or not
+	Validate(Messenger) (bool, error) // Implentation specifc validation that checks weather the current notifcation is good or not
 }
 
 type Messenger interface {

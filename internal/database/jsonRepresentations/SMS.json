@@ -1,0 +1,17 @@
+
+{
+   "userid1":{
+      "registered":[
+         {"recipiant1":{
+               "number":9082234134,
+               "tags":["SMS","Dance","Sports"]}
+         },
+         {
+            "recipiant2":{
+               "number":952425624523,
+               "tags":["SMS"]
+            }
+         }
+        ]
+   }
+}

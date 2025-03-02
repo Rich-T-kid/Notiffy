@@ -2,18 +2,16 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"os"
 
-	"github.com/joho/godotenv"
+	_ "github.com/Rich-T-kid/Notiffy/enviroment" // this package needs to always to be run first b4 all other custom packages
+)
+
+var (
+	port = "9999"
+	env  = "dev"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("loading env file resulted in an error ->", err)
-	}
-	key := "test"
-	fmt.Printf(fmt.Sprintf("enviremtn varible for %s is %s\n", key, os.Getenv(key)))
+
 	fmt.Println("vim-go")
 }

@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -37,7 +36,7 @@ func (s *StorageSolution) Load() error { return nil }
 
 func EstablishMongoConnection() *mongo.Database {
 	mongoURI := os.Getenv("MONGO_URI")
-	fmt.Printf("MongoURI:%s\n", mongoURI)
+	//fmt.Printf("MongoURI:%s\n", mongoURI)
 
 	// Set client options
 	clientOptions := options.Client().ApplyURI(mongoURI)

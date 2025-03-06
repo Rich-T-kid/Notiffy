@@ -28,7 +28,7 @@ type tags []Tag                                                  // assign user 
 
 // Validator is any struct that has a Validate method. Used to validate its self that it has proper values that wont damage the database
 type Validator interface {
-	Validate(interface{}) (bool, error)
+	Validate(interface{}) error
 }
 type UserService interface {
 	// Register adds a user to the service and associates them with the provided subcategory.
@@ -51,10 +51,10 @@ type NotificationService interface {
 	Start(ctx context.Context) error
 	// start service, I.E set up any related API and check service is up to run
 	UserService
-	Notify(ctx context.Context, body Messenger, filter Filter) (int, error)                       // send message body out to the users who fit the criterial
-	SendDirectMessage(ctx context.Context, body Messenger, from string, recipient []string) error // is directly to another user/service
+	Notify(ctx context.Context, body Messenger, filter Filter) (n int, e []error)                   // returns n notified clients                   // send message body out to the users who fit the criterial
+	SendDirectMessage(ctx context.Context, body Messenger, from string, recipient []string) []error // is directly to another user/service
 
-	Validate(Messenger) (bool, error) // Implentation specifc validation that checks weather the current notifcation is good or not
+	Validate(Messenger) error // Implentation specifc validation that checks weather the current notifcation is good or not
 }
 
 type Messenger interface {
@@ -72,6 +72,7 @@ type MessageMeta interface {
 	Priority() int    // Priority of the message (e.g., 1 = High, 5 = Low)
 	Timestamp() int64 // Unix timestamp for message scheduling
 	Title() string
+	From() string
 }
 
 /*
@@ -80,14 +81,9 @@ type Notifyer interface {
 	Notify()
 }
 type UserNotification interface {
-	DirectMessage
 	Scheduler
 }
 
-type DirectMessage interface {
-	Notify(ctx context.Context, message Messenger, recipients ...string) error
-	Validate(message Messenger) bool // Check if the message is suitable for this channel
-}
 
 type Scheduler interface {
 	Schedule(ctx context.Context, method Notifyer, message Messenger, timestamp int64) error

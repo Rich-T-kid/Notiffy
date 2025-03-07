@@ -28,7 +28,7 @@ type tags []Tag                                                  // assign user 
 
 // Validator is any struct that has a Validate method. Used to validate its self that it has proper values that wont damage the database
 type Validator interface {
-	Validate(interface{}) error
+	Validate() error
 }
 type UserService interface {
 	// Register adds a user to the service and associates them with the provided subcategory.
@@ -51,10 +51,13 @@ type NotificationService interface {
 	Start(ctx context.Context) error
 	// start service, I.E set up any related API and check service is up to run
 	UserService
-	Notify(ctx context.Context, body Messenger, filter Filter) (n int, e []error)                   // returns n notified clients                   // send message body out to the users who fit the criterial
-	SendDirectMessage(ctx context.Context, body Messenger, from string, recipient []string) []error // is directly to another user/service
+	// returns n notified clients                   // send message body out to the users who fit the criterial
+	Notify(ctx context.Context, body Messenger, filter Filter) (n int, e []error)
+	// is directly to another user/service
+	SendDirectMessage(ctx context.Context, body Messenger, from string, recipient []string) []error
 
-	Validate(Messenger) error // Implentation specifc validation that checks weather the current notifcation is good or not
+	// Implentation specifc validation that checks weather the current notifcation is good or not
+	Validate(Messenger) error
 }
 
 type Messenger interface {

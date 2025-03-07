@@ -18,6 +18,7 @@ import (
 
 	db "github.com/Rich-T-kid/Notiffy/internal/database" // this package needs to always to be run first b4 all other custom packages
 	logger "github.com/Rich-T-kid/Notiffy/internal/log"
+	"github.com/Rich-T-kid/Notiffy/pkg"
 )
 
 // TODO: Implement the rest of the notificationService (Start,Notify,SendDirectMessage)
@@ -102,6 +103,7 @@ type textBeltMSGresponse struct {
 func NewSMSUserService() UserService {
 	return NewSMSNotification()
 }
+
 func NewSMSService() NotificationService {
 	return NewSMSNotification()
 }
@@ -122,6 +124,17 @@ func NewSMSNotification() *SMSNotification {
 // there should be a target to notify based on the filter
 // notify and ensure that everyone that should have been notified was. if not return an error( this error will contain the users that were notified)
 func (s *SMSNotification) Notify(ctx context.Context, body Messenger, filter Filter) (int, []error) {
+	requestid, ok := ctx.Value(pkg.RequestIDKey{}).(string)
+	if !ok {
+		logger.Critical("context request ID is not present when it should be!")
+		return 0, []error{pkg.ErrMissingRequestID}
+	}
+	startTime, ok := ctx.Value(pkg.StartTime{}).(time.Time)
+	if !ok {
+		logger.Critical("context start time is not present when it should be!")
+		return 0, []error{pkg.ErrMissingStartTime}
+	}
+	formatedTime := startTime.Format("Mon, 02 Jan 2006 15:04:05 MST")
 	if err := s.Validate(body); err != nil {
 		return 0, []error{ErrInvalidMessengerPassed(err)}
 	}
@@ -132,14 +145,14 @@ func (s *SMSNotification) Notify(ctx context.Context, body Messenger, filter Fil
 	collection := s.db.Collection("SMS")
 	cursor, err := collection.Find(ctx, bson.D{})
 	if err != nil {
-		return 0, []error{fmt.Errorf("failed to find documents: %w", err)}
+		return 0, []error{fmt.Errorf("requestId: %s failed to find documents: %w", requestid, err)}
 	}
 	defer cursor.Close(ctx)
 	var res []RegisterINFO
 	if err = cursor.All(ctx, &res); err != nil {
-		return 0, []error{fmt.Errorf("failed to decode cursor results: %w", err)}
+		return 0, []error{fmt.Errorf("requestId: %s failed to decode cursor results: %w", requestid, err)}
 	}
-	logger.Info(fmt.Sprintf("all users in database %v", res))
+	logger.Info(fmt.Sprintf("requestId: %s all users in database %v", requestid, res))
 	var toNotify []RegisterINFO
 	for _, i := range res {
 		if filter(ctx, i) {
@@ -159,12 +172,12 @@ func (s *SMSNotification) Notify(ctx context.Context, body Messenger, filter Fil
 		if status != FAILED && status != "" {
 			notified += 1
 		}
-		logger.Info(fmt.Sprintf("message sent from %s to number (%s) has resulted in this response status from textbelts API %v", body.Metadata().From(), phoneStr, status))
+		logger.Info(fmt.Sprintf("requestId: %s message sent from %s to number (%s) has resulted in this response status from textbelts API %v", requestid, body.Metadata().From(), phoneStr, status))
 
 	}
 	if len(toNotify) != notified {
 		// TODO: not critical but it would be nice for callers to have more information about the users that we not notified
-		str := fmt.Sprintf("notify should have sent %d messages but only sent %d", len(toNotify), notified)
+		str := fmt.Sprintf("requestId: %s notify should have sent %d messages but only sent %d context startTime: %s", requestid, len(toNotify), notified, formatedTime)
 		errorArray = append(errorArray, errors.New(str))
 	}
 
@@ -173,6 +186,11 @@ func (s *SMSNotification) Notify(ctx context.Context, body Messenger, filter Fil
 
 // dont waste api request. Ive tested this and i know it works
 func (s *SMSNotification) SendDirectMessage(ctx context.Context, body Messenger, from string, recipient_usernames []string) []error {
+	requestid, ok := ctx.Value(pkg.RequestIDKey{}).(string)
+	if !ok {
+		logger.Critical("context request ID is not present when it should be!")
+		return []error{pkg.ErrMissingRequestID}
+	}
 	if len(recipient_usernames) == 0 {
 		return []error{errors.New("recipiant list cannot be empty")}
 	}
@@ -184,18 +202,17 @@ func (s *SMSNotification) SendDirectMessage(ctx context.Context, body Messenger,
 	if len(userInfo) == 0 {
 		return []error{errors.New("no valid usersnames were passed in. users must already be registred to be notified")}
 	}
-	logger.Debug("gonna use the textbelt API Below")
 	var errorArray []error
 	for _, user := range userInfo {
 		phoneStr := strconv.FormatInt(user.Contact, 10)
 		txResponse, err := s.sendTXT(phoneStr, newMessage)
 		if err != nil {
-			logger.Warn(fmt.Sprintf("SendText function failed with error:%v", err))
+			logger.Warn(fmt.Sprintf("requestID: %s  SendText function failed with error:%v", requestid, err))
 			errorArray = append(errorArray, err)
 		}
 		status, err := s.messageStatus(txResponse.TextId)
 		if err != nil {
-			logger.Warn(fmt.Sprintf("SendText function failed with error:%v", err))
+			logger.Warn(fmt.Sprintf("requestID: %s SendText function failed with error:%v", requestid, err))
 			errorArray = append(errorArray, err)
 
 		}
@@ -206,7 +223,13 @@ func (s *SMSNotification) SendDirectMessage(ctx context.Context, body Messenger,
 
 // doesnt need to do alot right now. mabey ubon an extreranl api intergration butkeep minimal for as long as possible
 func (s *SMSNotification) Start(ctx context.Context) error {
+	requestid, ok := ctx.Value(pkg.RequestIDKey{}).(string)
+	if !ok {
+		logger.Critical("context request ID is not present when it should be!")
+		return pkg.ErrMissingRequestID
+	}
 	_, err := s.quota(ctx)
+	fmt.Printf("requestId: %s has began the SMSNotification service\n", requestid)
 	return err
 }
 
@@ -220,7 +243,7 @@ func (s *SMSNotification) Register(ctx context.Context, userInfo Validator, subc
 
 	}
 	collection := s.db.Collection("SMS")
-	if err := userInfo.Validate(userInfo); err != nil {
+	if err := userInfo.Validate(); err != nil {
 		return ErrInvalidUserObject
 	}
 	exist := s.exist(user.Name)
@@ -243,7 +266,7 @@ func (s *SMSNotification) Unregister(ctx context.Context, userInfo Validator, su
 		return ErrInvalidUserType
 
 	}
-	if err := userInfo.Validate(userInfo); err != nil {
+	if err := userInfo.Validate(); err != nil {
 		return ErrInvalidUserObject
 	}
 	collection := s.db.Collection("SMS")
@@ -266,7 +289,7 @@ func (s *SMSNotification) UpdateRegistration(ctx context.Context, userInfo Valid
 		logger.Critical("Incorrect type passed into SMS Notification Service")
 		return ErrInvalidUserType
 	}
-	if err := userInfo.Validate(userInfo); err != nil {
+	if err := userInfo.Validate(); err != nil {
 		return ErrInvalidUserObject
 	}
 
@@ -313,10 +336,16 @@ func (s *SMSNotification) ListUsers(filter Filter) ([]string, error) {
 }
 
 // be carful not to confuse the function signatures below. they accept and return different types
-
-func (r *RegisterINFO) Validate(interface{}) error {
+// :aeaws
+func (r *RegisterINFO) Validate() error {
 	// Name cannot already be taken
 	// Phone number must be valid
+	if r.Name == "" {
+		return errors.New("name cannot be empty")
+	}
+	if r.Contact == 0.0 {
+		return errors.New("contact number must be a valid phone number")
+	}
 	return nil
 
 }

@@ -15,7 +15,7 @@ type MockValidator struct {
 	valid bool
 }
 
-func (m *MockValidator) Validate(interface{}) error {
+func (m *MockValidator) Validate() error {
 	return nil
 }
 

@@ -24,7 +24,9 @@ import (
 // TODO: Implement the rest of the notificationService (Start,Notify,SendDirectMessage)
 
 var (
-	ErrInvalidUserType   = errors.New("incorrect type passed into sms notification service")
+	ErrInvalidUserType = func(inputType string, expectedTypes []string) error {
+		return fmt.Errorf("incorrect type passed into notification service. can accept %v  but recieved %s", expectedTypes, inputType)
+	}
 	ErrInvalidUserObject = errors.New("invalid user object passed in")
 	ErrUsernameExists    = errors.New("username already exists, pick a new one")
 	ErrUserInfoError     = errors.New("error in your userInfo")
@@ -65,15 +67,6 @@ type SMSBody struct {
 	mainText   string
 }
 
-func DefineMessage(from, title, text string) *SMSBody {
-	return &SMSBody{
-		from:       from,
-		title:      title,
-		categories: tags{"sms"},
-		mainText:   text,
-	}
-}
-
 // Messenger interface
 func (s *SMSBody) Message() MessageBody  { return s }
 func (s *SMSBody) Metadata() MessageMeta { return s }
@@ -100,6 +93,14 @@ type textBeltMSGresponse struct {
 	QuotaRemaining int    `json:"quotaRemaining"`
 }
 
+func DefineMessage(from, title, text string) *SMSBody {
+	return &SMSBody{
+		from:       from,
+		title:      title,
+		categories: tags{"sms"},
+		mainText:   text,
+	}
+}
 func NewSMSUserService() UserService {
 	return NewSMSNotification()
 }
@@ -116,7 +117,6 @@ func NewSMSNotification() *SMSNotification {
 	}
 	return &SMSNotification{
 		apiKey: apikey,
-		saver:  db.NewStorage(),
 		db:     db.EstablishMongoConnection(),
 	}
 }
@@ -228,7 +228,7 @@ func (s *SMSNotification) Start(ctx context.Context) error {
 		logger.Critical("context request ID is not present when it should be!")
 		return pkg.ErrMissingRequestID
 	}
-	_, err := s.quota(ctx)
+	_, err := s.quota()
 	fmt.Printf("requestId: %s has began the SMSNotification service\n", requestid)
 	return err
 }
@@ -239,7 +239,9 @@ func (s *SMSNotification) Register(ctx context.Context, userInfo Validator, subc
 	if !ok {
 		// This should return an error but since i havnt handled the Validate file yet this will just crash
 		logger.Critical("Incorrect type passed into SMS Notification Service")
-		return ErrInvalidUserType
+		givenType := fmt.Sprintf("%T", userInfo)
+		expectedTypeName := fmt.Sprintf("%T", &RegisterINFO{})
+		return ErrInvalidUserType(givenType, []string{expectedTypeName})
 
 	}
 	collection := s.db.Collection("SMS")
@@ -263,7 +265,9 @@ func (s *SMSNotification) Unregister(ctx context.Context, userInfo Validator, su
 	if !ok {
 		// This should return an error but since i havnt handled the Validate file yet this will just crash
 		logger.Critical("Incorrect type passed into SMS Notification Service")
-		return ErrInvalidUserType
+		givenType := fmt.Sprintf("%T", userInfo)
+		expectedTypeName := fmt.Sprintf("%T", &RegisterINFO{})
+		return ErrInvalidUserType(givenType, []string{expectedTypeName})
 
 	}
 	if err := userInfo.Validate(); err != nil {
@@ -287,7 +291,9 @@ func (s *SMSNotification) UpdateRegistration(ctx context.Context, userInfo Valid
 	user, ok := userInfo.(*RegisterINFO)
 	if !ok {
 		logger.Critical("Incorrect type passed into SMS Notification Service")
-		return ErrInvalidUserType
+		givenType := fmt.Sprintf("%T", userInfo)
+		expectedTypeName := fmt.Sprintf("%T", &RegisterINFO{})
+		return ErrInvalidUserType(givenType, []string{expectedTypeName})
 	}
 	if err := userInfo.Validate(); err != nil {
 		return ErrInvalidUserObject
@@ -353,7 +359,9 @@ func (s *SMSNotification) Validate(input Messenger) error {
 	body, ok := input.(*SMSBody)
 	if !ok {
 		logger.Info("Incorrect type passed into SMS Notification Service")
-		return ErrInvalidUserType
+		givenType := fmt.Sprintf("%T", input)
+		expectedTypeName := fmt.Sprintf("%T", &SMSBody{})
+		return ErrInvalidUserType(givenType, []string{expectedTypeName})
 	}
 
 	if body.from == "" {
@@ -421,7 +429,7 @@ func (s *SMSNotification) userbyID(ctx context.Context, toFind []string) ([]Regi
 	}
 	return res, nil
 }
-func (s *SMSNotification) quota(ctx context.Context) (int, error) {
+func (s *SMSNotification) quota() (int, error) {
 	endpoint := fmt.Sprintf("https://textbelt.com/quota/%s", s.apiKey)
 	tempResponse := struct {
 		Success        bool `json:"success"`

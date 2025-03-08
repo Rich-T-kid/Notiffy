@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	keys           = []string{"test", "test2"}
+	keys           = []string{}
 	_              = loadenviromentVaribles()
 	errMissingKeys = errors.New("enviroments var's are not set")
 )

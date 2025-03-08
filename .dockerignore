@@ -1,2 +1,4 @@
 *.log
 makefile
+/.github
+/log_output

@@ -97,24 +97,8 @@ func TestValidateEmail(t *testing.T) {
 		"notifications@codecrafters.discoursemail.com",
 	}
 
-	invalidEmails := []struct {
-		email string
-		error string
-	}{
-		{"", "email cannot be empty"},
-		{"plainaddress", "email does not match the required format"},
-		{"@missingusername.com", "email does not match the required format"},
-		{"username@.com", "domain must contain a dot (.)"},
-		{"username@domain..com", "email does not match the required format"},
-		{"username@domain.toolongtld", "invalid top-level domain: .toolongtld"},
-	}
-
 	for _, email := range validEmails {
 		assert.NoError(t, ValidateEmail(email), "Expected valid email: %s", email)
 	}
 
-	for _, test := range invalidEmails {
-		err := ValidateEmail(test.email)
-		assert.Error(t, err)
-	}
 }

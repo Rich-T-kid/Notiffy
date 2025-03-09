@@ -8,6 +8,7 @@ import (
 	"time"
 
 	_ "github.com/Rich-T-kid/Notiffy/internal/enviroment" // this package needs to always to be run first b4 all other custom packages
+	"github.com/Rich-T-kid/Notiffy/pkg"
 )
 
 // MockValidator is a mock for the Validator interface
@@ -20,7 +21,7 @@ func (m *MockValidator) Validate() error {
 }
 
 func TestRegister(t *testing.T) {
-	ctx := context.TODO()
+	ctx := pkg.ContextWithRequestID()
 	userInfo := &RegisterINFO{
 		Name:    "Test User",
 		Contact: 1234567890,
@@ -39,7 +40,7 @@ func TestRegister(t *testing.T) {
 }
 
 func TestUnregister(t *testing.T) {
-	ctx := context.TODO()
+	ctx := pkg.ContextWithRequestID()
 	userInfo := &RegisterINFO{
 		Name:    "Test User",
 		Contact: 1234567890,
@@ -57,15 +58,17 @@ func TestUnregister(t *testing.T) {
 }
 
 func TestUpdateRegistration(t *testing.T) {
-	ctx := context.TODO()
+
+	ctx := pkg.ContextWithRequestID()
+	uniqueName := fmt.Sprintf("test_user%d", time.Now().UnixNano())
 	userInfo := &RegisterINFO{
-		Name:    "Test User",
+		Name:    uniqueName,
 		Contact: 1234567890,
 		Tags:    []Tag{TagSMS, TagEmail},
 	}
 
 	s := NewSMSNotification()
-
+	s.Register(context.TODO(), userInfo, []Tag{"SMS"})
 	err := s.UpdateRegistration(ctx, userInfo, []Tag{"SMS"})
 	if err != nil {
 		t.Errorf("UpdateRegistration test failed: %v", err)
@@ -82,9 +85,10 @@ func TestExist(t *testing.T) {
 		Tags:    []Tag{TagSMS, TagEmail},
 	}
 
+	ctx := pkg.ContextWithRequestID()
 	s := NewSMSNotification()
 
-	_ = s.Register(context.TODO(), userInfo, []Tag{TagSMS})
+	_ = s.Register(ctx, userInfo, []Tag{TagSMS})
 
 	if !s.exist(Username) {
 		t.Error("Exist test failed: Expected true for existing user")
@@ -94,7 +98,7 @@ func TestExist(t *testing.T) {
 }
 
 func TestRegisterWithInvalidValidator(t *testing.T) {
-	ctx := context.TODO()
+	ctx := pkg.ContextWithRequestID()
 	invalidValidator := &MockValidator{valid: false}
 
 	s := NewSMSNotification()
@@ -108,7 +112,7 @@ func TestRegisterWithInvalidValidator(t *testing.T) {
 }
 
 func TestUnregisterNonExistentUser(t *testing.T) {
-	ctx := context.TODO()
+	ctx := pkg.ContextWithRequestID()
 	userInfo := &RegisterINFO{
 		Name:    "NonExistent User",
 		Contact: 9876543210,
@@ -168,7 +172,7 @@ func TestNewSMSNotification(t *testing.T) {
 }
 func TestSMSNotification_Register(t *testing.T) {
 	svc := NewSMSNotification()
-	ctx := context.Background()
+	ctx := pkg.ContextWithRequestID()
 
 	userName := fmt.Sprintf("testRegisterUser_%d", time.Now().UnixNano())
 	user := &RegisterINFO{
@@ -184,7 +188,7 @@ func TestSMSNotification_Register(t *testing.T) {
 // Test the Unregister method by first registering a user, then unregistering
 func TestSMSNotification_Unregister(t *testing.T) {
 	svc := NewSMSNotification()
-	ctx := context.Background()
+	ctx := pkg.ContextWithRequestID()
 
 	userName := fmt.Sprintf("testUnregisterUser_%d", time.Now().UnixNano())
 	user := &RegisterINFO{
@@ -207,7 +211,7 @@ func TestSMSNotification_Unregister(t *testing.T) {
 // Test UpdateRegistration by registering a user, then removing a tag
 func TestSMSNotification_UpdateRegistration(t *testing.T) {
 	svc := NewSMSNotification()
-	ctx := context.Background()
+	ctx := pkg.ContextWithRequestID()
 
 	userName := fmt.Sprintf("testUpdateRegUser_%d", time.Now().UnixNano())
 	user := &RegisterINFO{
@@ -232,7 +236,7 @@ func TestSMSNotification_UpdateRegistration(t *testing.T) {
 // Test ListUsers by registering a user, then verifying we can see them in the list
 func TestSMSNotification_ListUsers(t *testing.T) {
 	svc := NewSMSNotification()
-	ctx := context.Background()
+	ctx := pkg.ContextWithRequestID()
 
 	userName := fmt.Sprintf("testListUsers_%d", time.Now().UnixNano())
 	user := &RegisterINFO{
@@ -270,7 +274,7 @@ func TestSMSNotification_ListUsers(t *testing.T) {
 // We cannot fully validate external service calls to Textbelt here; we just check for errors
 func TestSMSNotification_Notify(t *testing.T) {
 	svc := NewSMSNotification()
-	ctx := context.Background()
+	ctx := pkg.ContextWithRequestID()
 
 	msg := DefineMessage("testAuthor", "testTitle", "This is a test broadcast message.")
 	filterAll := func(ctx context.Context, tags ...interface{}) bool {
@@ -290,7 +294,7 @@ func TestSMSNotification_Notify(t *testing.T) {
 // Similar approach: we just check for returned errors, not actual textbelt sending
 func TestSMSNotification_SendDirectMessage(t *testing.T) {
 	svc := NewSMSNotification()
-	ctx := context.Background()
+	ctx := pkg.ContextWithRequestID()
 
 	msg := DefineMessage("testDMAuthor", "testDMTitle", "This is a direct message.")
 	// We'll pass some likely non-existing user, just to see if we get an error

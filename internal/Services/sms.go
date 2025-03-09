@@ -244,7 +244,6 @@ func (s *SMSNotification) Register(ctx context.Context, userInfo Validator, subc
 		return ErrInvalidUserType(givenType, []string{expectedTypeName})
 
 	}
-	collection := s.db.Collection("SMS")
 	if err := userInfo.Validate(); err != nil {
 		return ErrInvalidUserObject
 	}
@@ -255,6 +254,7 @@ func (s *SMSNotification) Register(ctx context.Context, userInfo Validator, subc
 	// By defualt every user registered under this has an SMS tag
 	user.Tags = append(user.Tags, Tag("SMS"))
 	logger.Info(fmt.Sprintf("Inserting user %s into SMS collection", user.Name))
+	collection := s.db.Collection("SMS")
 	_, err := collection.InsertOne(ctx, userInfo)
 	return err
 }
@@ -273,12 +273,12 @@ func (s *SMSNotification) Unregister(ctx context.Context, userInfo Validator, su
 	if err := userInfo.Validate(); err != nil {
 		return ErrInvalidUserObject
 	}
-	collection := s.db.Collection("SMS")
 
 	exist := s.exist(user.Name)
 	if !exist {
 		return ErrUserMustExist(user.Name)
 	}
+	collection := s.db.Collection("SMS")
 	filter := bson.D{{Key: "Name", Value: user.Name}}
 	_, err := collection.DeleteOne(ctx, filter)
 	return err
@@ -298,6 +298,11 @@ func (s *SMSNotification) UpdateRegistration(ctx context.Context, userInfo Valid
 	if err := userInfo.Validate(); err != nil {
 		return ErrInvalidUserObject
 	}
+	// cant update a user that doesnt already exist
+	exist := s.exist(user.Name)
+	if !exist {
+		return fmt.Errorf("user %s must already exist before atempty to update their registration ", user.Name) //ErrUserMustExist(user.Name)
+	}
 
 	collection := s.db.Collection("SMS")
 	filter := bson.D{{Key: "Name", Value: user.Name}}
@@ -309,7 +314,7 @@ func (s *SMSNotification) UpdateRegistration(ctx context.Context, userInfo Valid
 
 	_, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		return fmt.Errorf("failed to update registration: %w", err)
+		return fmt.Errorf("mongo failed to update registration: %w", err)
 	}
 
 	return nil

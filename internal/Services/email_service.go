@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/smtp"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -27,9 +30,9 @@ const (
 )
 
 type EmailReigisterInfo struct {
-	Name  string
-	Email string
-	Tags  tags
+	Name  string `bson:"Name"`
+	Email string `bson:"Email"`
+	Tags  tags   `bson:"Tags"`
 }
 
 func (e *EmailReigisterInfo) Validate() error {
@@ -38,6 +41,9 @@ func (e *EmailReigisterInfo) Validate() error {
 	}
 	if e.Email == "" {
 		return errors.New("user's Email cannot be empty")
+	}
+	if err := ValidateEmail(e.Email); err != nil {
+		return fmt.Errorf("invalid email format: %w", err)
 	}
 	return nil
 }
@@ -81,24 +87,118 @@ func NewMailer() *Mailer {
 		db:             mongodb,
 	}
 }
-func DefineMail(subject, body, to string) *Mailbody {
+func DefineMail(subject, body, to string, topics tags) *Mailbody {
 	return &Mailbody{
-		Subject: subject,
-		Body:    body,
-		To:      to,
+		Subject:  subject,
+		MailList: topics,
+		Body:     body,
+		To:       to,
 	}
 }
-func (r *register) Register(ctx context.Context, userinfo Validator, subcategory []Tag) error {
-	return nil
+func (r *register) Register(ctx context.Context, userInfo Validator, subcategory []Tag) error {
+	user, ok := userInfo.(*EmailReigisterInfo)
+	if !ok {
+		// This should return an error but since i havnt handled the Validate file yet this will just crash
+		logger.Critical("Incorrect type passed into Email Notification Service")
+		givenType := fmt.Sprintf("%T", userInfo)
+		expectedTypeName := fmt.Sprintf("%T", &EmailReigisterInfo{})
+		return ErrInvalidUserType(givenType, []string{expectedTypeName})
+
+	}
+	if err := userInfo.Validate(); err != nil {
+		return ErrInvalidUserObject
+	}
+	exist := r.exist(user.Name)
+	if exist {
+		return ErrUsernameExists
+	}
+	// By defualt every user registered under this has an SMS tag
+	collection := r.db.Collection("EMAIL")
+	user.Tags = append(user.Tags, Tag("EMAIL"))
+	logger.Info(fmt.Sprintf("Inserting user %s into EMAIL collection", user.Name))
+	_, err := collection.InsertOne(ctx, userInfo)
+	return err
 }
-func (r *register) Unregister(ctx context.Context, userinfo Validator, subcategory []Tag) error {
-	return nil
+func (r *register) Unregister(ctx context.Context, userInfo Validator, subcategory []Tag) error {
+	user, ok := userInfo.(*EmailReigisterInfo)
+	if !ok {
+		// This should return an error but since i havnt handled the Validate file yet this will just crash
+		logger.Critical("Incorrect type passed into Email Notification Service")
+		givenType := fmt.Sprintf("%T", userInfo)
+		expectedTypeName := fmt.Sprintf("%T", &EmailReigisterInfo{})
+		return ErrInvalidUserType(givenType, []string{expectedTypeName})
+
+	}
+	if err := userInfo.Validate(); err != nil {
+		return ErrInvalidUserObject
+	}
+	exist := r.exist(user.Name)
+	if !exist {
+		return ErrUserMustExist(user.Name)
+	}
+	collection := r.db.Collection("EMAIL")
+	filter := bson.D{{Key: "Name", Value: user.Name}}
+	_, err := collection.DeleteOne(ctx, filter)
+	return err
 }
-func (r *register) UpdateRegistration(ctx context.Context, userinfo Validator, subcategory []Tag) error {
+func (r *register) UpdateRegistration(ctx context.Context, userInfo Validator, subcategories []Tag) error {
+	user, ok := userInfo.(*EmailReigisterInfo)
+	if !ok {
+		// This should return an error but since i havnt handled the Validate file yet this will just crash
+		logger.Critical("Incorrect type passed into Email Notification Service")
+		givenType := fmt.Sprintf("%T", userInfo)
+		expectedTypeName := fmt.Sprintf("%T", &EmailReigisterInfo{})
+		return ErrInvalidUserType(givenType, []string{expectedTypeName})
+
+	}
+	if err := userInfo.Validate(); err != nil {
+		return ErrInvalidUserObject
+	}
+	exist := r.exist(user.Name)
+	if !exist {
+		return fmt.Errorf("user %s must already exist before atempty to update their registration ", user.Name) //ErrUserMustExist(user.Name)
+		//return ErrUserMustExist(user.Name)
+	}
+	collection := r.db.Collection("EMAIL")
+	filter := bson.D{{Key: "Name", Value: user.Name}}
+	update := bson.D{
+		{Key: "$pull", Value: bson.D{
+			{Key: "Tags", Value: bson.M{"$in": subcategories}},
+		}},
+	}
+
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("mongo failed to update registration: %w", err)
+	}
 	return nil
+
 }
 func (r *register) ListUsers(filter Filter) ([]string, error) {
-	return nil, nil
+	collection := r.db.Collection("EMAIL")
+
+	// Retrieve all registered users from the EMAIL collection
+	cursor, err := collection.Find(context.TODO(), bson.D{})
+	if err != nil {
+		logger.Critical(fmt.Sprintf("Failed to retrieve users: %v", err))
+		return nil, err
+	}
+	defer cursor.Close(context.TODO())
+
+	var results []EmailReigisterInfo
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		logger.Critical(fmt.Sprintf("Failed to parse users: %v", err))
+		return nil, err
+	}
+
+	var filteredUsers []string
+	for _, user := range results {
+		if filter(context.TODO(), user.Name, user.Tags) {
+			filteredUsers = append(filteredUsers, user.Name)
+		}
+	}
+
+	return filteredUsers, nil
 }
 
 func (m *Mailer) Start(ctx context.Context) error {
@@ -180,8 +280,8 @@ func (m *Mailer) sendEmail(ctx context.Context, recipientEmail, subject, body st
 	return nil
 }
 
-func (m *Mailer) exist(name string) bool {
-	collection := m.db.Collection("EMAIL")
+func (r *register) exist(name string) bool {
+	collection := r.db.Collection("EMAIL")
 	filter := bson.D{{Key: "Name", Value: name}}
 	count, err := collection.CountDocuments(context.TODO(), filter)
 	if err != nil {
@@ -190,4 +290,57 @@ func (m *Mailer) exist(name string) bool {
 	}
 	logger.Info(fmt.Sprintf("Name:%s exist %d times in databse\n", name, count))
 	return count > 0
+}
+
+// Validation
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
+var validTLDs = map[string]bool{
+	".com": true, ".net": true, ".org": true, ".edu": true,
+	".gov": true, ".io": true, ".co": true, ".us": true,
+}
+
+// ValidateEmail performs a comprehensive email validation
+func ValidateEmail(email string) error {
+	if email == "" {
+		return errors.New("email cannot be empty")
+	}
+
+	if len(email) > 254 {
+		return errors.New("email exceeds the maximum length of 254 characters")
+	}
+
+	if !emailRegex.MatchString(email) {
+		return errors.New("email does not match the required format")
+	}
+
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return errors.New("email must contain a single @ character")
+	}
+
+	domain := parts[1]
+
+	if len(domain) < 3 || len(domain) > 255 {
+		return errors.New("domain part of the email is invalid")
+	}
+
+	// Validate the domain contains at least one dot
+	if !strings.Contains(domain, ".") {
+		return errors.New("domain must contain a dot (.)")
+	}
+
+	// Check if the domain has a valid TLD
+	tld := strings.ToLower(domain[strings.LastIndex(domain, "."):])
+	if !validTLDs[tld] {
+		return fmt.Errorf("invalid top-level domain: %s", tld)
+	}
+
+	// Verify the domain has MX records
+	mxRecords, err := net.LookupMX(domain)
+	if err != nil || len(mxRecords) == 0 {
+		return fmt.Errorf("domain does not have valid MX records: %s", domain)
+	}
+
+	return nil
 }

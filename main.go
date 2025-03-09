@@ -1,21 +1,23 @@
 package main
 
 import (
-	"fmt"
 	// this package needs to always to be run first b4 all other custom packages
+	"fmt"
+	"net/http"
 
 	_ "github.com/Rich-T-kid/Notiffy/internal/enviroment" // this package needs to always to be run first b4 all other custom packages
-	Logger "github.com/Rich-T-kid/Notiffy/internal/log"   // this package needs to always to be run first b4 all other custom packages
-)
-
-var (
-	port = "9999"
-	env  = "dev"
 )
 
 func main() {
-	Logger.Info("should output to terminal")
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "Status 200 OK")
+	})
 
-	Logger.Critical("Should output to file")
-	fmt.Println("vim-go")
+	println("No errors occured")
+	fmt.Println("Server is running on http://localhost:9999")
+	if err := http.ListenAndServe(":9999", nil); err != nil {
+		fmt.Println("Failed to start server:", err)
+	}
+
 }

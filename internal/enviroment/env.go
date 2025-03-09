@@ -10,7 +10,9 @@ import (
 )
 
 var (
-	keys           = []string{}
+
+	keys           = []string{"MONGO_URI", "TEXTBELT_API_KEY", "SENDER_EMAIL", "GOOGLE_GMAIL_PASSWORD"}
+
 	_              = loadenviromentVaribles()
 	errMissingKeys = errors.New("enviroments var's are not set")
 )
@@ -28,6 +30,8 @@ func init() {
 func loadenviromentVaribles() error {
 	err := godotenv.Load()
 	if err != nil {
+		base, _ := os.Getwd()
+		fmt.Println("Curren working directory: ", base)
 		log.Fatal("loading env file resulted in an error ->", err)
 	}
 	return err

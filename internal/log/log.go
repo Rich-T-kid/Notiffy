@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -15,6 +16,7 @@ var (
 
 const (
 	logFlags = log.LstdFlags | log.Lshortfile
+	logDir   = "log_output" // Store logs in the project root under log_output
 )
 
 func init() {
@@ -22,13 +24,18 @@ func init() {
 }
 
 func initLoggers() {
-	// Create or open log files
-	generalFile, err := os.OpenFile("internal/log/general.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// Ensure the log directory exists
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		log.Fatalf("Failed to create log directory: %v", err)
+	}
+
+	// Create or open log files with paths relative to the project root
+	generalFile, err := os.OpenFile(filepath.Join(logDir, "general.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open general log file: %v", err)
 	}
 
-	focusFile, err := os.OpenFile("internal/log/focus.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	focusFile, err := os.OpenFile(filepath.Join(logDir, "focus.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open focus log file: %v", err)
 	}

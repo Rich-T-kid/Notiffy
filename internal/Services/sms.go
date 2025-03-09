@@ -49,10 +49,6 @@ const (
 	UNKNOWN   status = "UNKNOWN"
 )
 
-func init() {
-	//print("richard make sure that the third party API that you going to intergrate with is up and running in this init func\n")
-}
-
 type RegisterINFO struct {
 	Name    string `bson:"Name"`
 	Contact int64  `bson:"Contact"` // phone number

@@ -4,11 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/smtp"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,6 +25,13 @@ var (
 const (
 	Email_Title = "Notiffy"
 )
+
+func NewMailNotiffyer() NotificationService {
+	return NewMailer()
+}
+func newMailRegister() UserService {
+	return NewMailer()
+}
 
 type EmailReigisterInfo struct {
 	Name  string `bson:"Name"`
@@ -152,6 +156,7 @@ func (r *register) UpdateRegistration(ctx context.Context, userInfo Validator, s
 
 	}
 	if err := userInfo.Validate(); err != nil {
+		logger.Debug(fmt.Sprintf("validate EmailRegisterInfo struct %v\n", err))
 		return ErrInvalidUserObject
 	}
 	exist := r.exist(user.Name)
@@ -193,7 +198,7 @@ func (r *register) ListUsers(filter Filter) ([]string, error) {
 
 	var filteredUsers []string
 	for _, user := range results {
-		if filter(context.TODO(), user.Name, user.Tags) {
+		if filter(context.TODO(), user) {
 			filteredUsers = append(filteredUsers, user.Name)
 		}
 	}
@@ -213,11 +218,90 @@ func (m *Mailer) Start(ctx context.Context) error {
 }
 
 func (m *Mailer) Notify(ctx context.Context, body Messenger, filter Filter) (int, []error) {
-	return 0, nil
+	requestID, ok := ctx.Value(pkg.RequestIDKey{}).(string)
+	if !ok {
+		logger.Critical("context request ID is not present when it should be!")
+		return 0, []error{pkg.ErrMissingRequestID}
+	}
+	startTime, ok := ctx.Value(pkg.StartTime{}).(time.Time)
+	if !ok {
+		logger.Critical("context start time is not present when it should be!")
+		return 0, []error{pkg.ErrMissingStartTime}
+	}
+	formattedTime := startTime.Format("Mon, 02 Jan 2006 15:04:05 MST")
+
+	if err := m.Validate(body); err != nil {
+		return 0, []error{ErrInvalidMessengerPassed(err)}
+	}
+	allUsers, err := m.ListUsers(filter)
+	if err != nil {
+		return 0, []error{err}
+	}
+
+	users, err := m.userbyID(ctx, allUsers) // Fetch all users since the filter will determine who to notify
+	if err != nil {
+		return 0, []error{fmt.Errorf("requestId: %s failed to retrieve users: %w", requestID, err)}
+	}
+	if len(users) == 0 {
+		return 0, []error{errors.New("no users found to notify")}
+	}
+
+	var toNotify []EmailReigisterInfo
+	for _, user := range users {
+		if filter(ctx, user) {
+			toNotify = append(toNotify, user)
+		}
+	}
+
+	var errorArray []error
+	var notified int
+
+	finalMessage := fmt.Sprintf("email sender: %s\n    %s", body.Metadata().From(), body.Message().Content().(string))
+
+	for _, user := range toNotify {
+		err := m.sendEmail(ctx, user.Email, body.Metadata().Title(), finalMessage)
+		if err != nil {
+			errorArray = append(errorArray, err)
+			logger.Debug(fmt.Sprintf("request ID: %s failed to send email to %s with error: %v", requestID, user.Email, err))
+			continue
+		}
+		notified++
+		logger.Info(fmt.Sprintf("requestId: %s email sent to %s with subject %s", requestID, user.Email, body.Metadata().Title()))
+	}
+
+	if len(toNotify) != notified {
+		str := fmt.Sprintf("requestId: %s notify should have sent %d emails but only sent %d context startTime: %s",
+			requestID, len(toNotify), notified, formattedTime)
+		errorArray = append(errorArray, errors.New(str))
+	}
+
+	return notified, errorArray
 }
 
-func (m *Mailer) SendDirectMessage(ctx context.Context, body Messenger, from string, recipient []string) []error {
-	return nil
+func (m *Mailer) SendDirectMessage(ctx context.Context, body Messenger, from string, recipients []string) []error {
+	// dont forget to not use
+	requestID := ctx.Value(pkg.RequestIDKey{}).(string)
+	if len(recipients) == 0 {
+		return []error{errors.New("recipiant list cannot be empty")}
+	}
+	users, err := m.userbyID(ctx, recipients)
+	if err != nil {
+		return []error{err}
+	}
+	if len(users) == 0 {
+		return []error{errors.New("no valid usersnames were passed in. users must already be registred to be notified")}
+	}
+	// cleaner formating
+	finalMessage := fmt.Sprintf("email sender:%s\n    %s", from, body.Message().Content().(string))
+	var errorArray []error
+	for _, reciever := range users {
+		err := m.sendEmail(ctx, reciever.Email, body.Metadata().Title(), finalMessage)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("request ID: %s failed with error %v", requestID, err))
+			errorArray = append(errorArray, err)
+		}
+	}
+	return errorArray
 }
 
 func (m *Mailer) Validate(body Messenger) error {
@@ -292,55 +376,20 @@ func (r *register) exist(name string) bool {
 	return count > 0
 }
 
-// Validation
-var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+func (m *Mailer) userbyID(ctx context.Context, toFind []string) ([]EmailReigisterInfo, error) {
+	collection := m.db.Collection("EMAIL")
 
-var validTLDs = map[string]bool{
-	".com": true, ".net": true, ".org": true, ".edu": true,
-	".gov": true, ".io": true, ".co": true, ".us": true,
-}
+	// Correct filter for MongoDB query
+	filter := bson.M{"Name": bson.M{"$in": toFind}}
 
-// ValidateEmail performs a comprehensive email validation
-func ValidateEmail(email string) error {
-	if email == "" {
-		return errors.New("email cannot be empty")
+	cursor, err := collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find documents: %w", err)
 	}
-
-	if len(email) > 254 {
-		return errors.New("email exceeds the maximum length of 254 characters")
+	defer cursor.Close(ctx)
+	var res []EmailReigisterInfo
+	if err = cursor.All(ctx, &res); err != nil {
+		return nil, fmt.Errorf("failed to decode cursor results: %w", err)
 	}
-
-	if !emailRegex.MatchString(email) {
-		return errors.New("email does not match the required format")
-	}
-
-	parts := strings.Split(email, "@")
-	if len(parts) != 2 {
-		return errors.New("email must contain a single @ character")
-	}
-
-	domain := parts[1]
-
-	if len(domain) < 3 || len(domain) > 255 {
-		return errors.New("domain part of the email is invalid")
-	}
-
-	// Validate the domain contains at least one dot
-	if !strings.Contains(domain, ".") {
-		return errors.New("domain must contain a dot (.)")
-	}
-
-	// Check if the domain has a valid TLD
-	tld := strings.ToLower(domain[strings.LastIndex(domain, "."):])
-	if !validTLDs[tld] {
-		return fmt.Errorf("invalid top-level domain: %s", tld)
-	}
-
-	// Verify the domain has MX records
-	mxRecords, err := net.LookupMX(domain)
-	if err != nil || len(mxRecords) == 0 {
-		return fmt.Errorf("domain does not have valid MX records: %s", domain)
-	}
-
-	return nil
+	return res, nil
 }

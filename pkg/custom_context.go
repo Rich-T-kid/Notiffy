@@ -16,6 +16,7 @@ var (
 type RequestIDKey struct{}
 type StartTime struct{}
 
+// for http
 func ContextWithRequestID() context.Context {
 	requestUUID := uuid.NewString()
 	ctx := context.Background()

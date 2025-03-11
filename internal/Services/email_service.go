@@ -29,7 +29,7 @@ const (
 func NewMailNotiffyer() NotificationService {
 	return NewMailer()
 }
-func newMailRegister() UserService {
+func NewMailRegister() UserService {
 	return NewMailer()
 }
 

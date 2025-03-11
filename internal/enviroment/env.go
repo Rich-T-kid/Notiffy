@@ -10,8 +10,7 @@ import (
 )
 
 var (
-
-	keys           = []string{"MONGO_URI", "TEXTBELT_API_KEY", "SENDER_EMAIL", "GOOGLE_GMAIL_PASSWORD"}
+	keys = []string{"MONGO_URI", "TEXTBELT_API_KEY", "SENDER_EMAIL", "GOOGLE_GMAIL_PASSWORD", "HTTP_SERVER_PORT", "GRPC_SERVER_PORT"}
 
 	_              = loadenviromentVaribles()
 	errMissingKeys = errors.New("enviroments var's are not set")

@@ -80,7 +80,6 @@ func (s *SMSBody) From() string     { return s.from }
 
 type SMSNotification struct {
 	apiKey string
-	saver  db.Storage
 	db     *mongo.Database // store as mongo collection for now
 }
 type textBeltMSGresponse struct {

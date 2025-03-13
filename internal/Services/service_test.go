@@ -61,6 +61,7 @@ func TestServiceSMSNotification_Unregister(t *testing.T) {
 	}
 
 	// Test Unregistration
+	smsService.Register(ctx, userInfo, userInfo.Tags)
 	err := smsService.Unregister(ctx, userInfo, []Tag{"SMS"})
 	assert.NoError(t, err, "Expected no error while unregistering a user")
 
@@ -154,6 +155,7 @@ func TestServiceEmailNotification_Unregister(t *testing.T) {
 	}
 
 	// Test Unregistration
+	emailService.Register(ctx, userInfo, userInfo.Tags)
 	err := emailService.Unregister(ctx, userInfo, []Tag{"Email"})
 	assert.NoError(t, err, "Expected no error while unregistering a user")
 

@@ -1,6 +1,9 @@
 package services
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // This is for the broad Push notifications. So notifying Users all at once
 // Keep minimal
@@ -101,4 +104,17 @@ func TagToString(tags Tags) []string {
 		result = append(result, string(tags[i]))
 	}
 	return result
+}
+func addifNotexist(tag string, tags []Tag) []Tag {
+
+	for i := range tags {
+		if tags[i] == Tag(tag) {
+			// if it already exist break early
+			return tags
+		}
+	}
+	fmt.Println("Final tags -> ", tags)
+	// otherwise append to tags
+	tags = append(tags, Tag(tag))
+	return tags
 }

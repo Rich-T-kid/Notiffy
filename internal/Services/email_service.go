@@ -164,11 +164,14 @@ func (r *register) UpdateRegistration(ctx context.Context, userInfo Validator, s
 		return fmt.Errorf("user %s must already exist before atempty to update their registration ", user.Name) //ErrUserMustExist(user.Name)
 		//return ErrUserMustExist(user.Name)
 	}
+	user.Tags = addifNotexist("EMAIL", user.Tags)
+	fmt.Printf("Passed object thats going to be sent to mongodb %+v\n", userInfo)
 	collection := r.db.Collection("EMAIL")
 	filter := bson.D{{Key: "Name", Value: user.Name}}
 	update := bson.D{
-		{Key: "$pull", Value: bson.D{
-			{Key: "Tags", Value: bson.M{"$in": subcategories}},
+		{Key: "$set", Value: bson.D{
+			{Key: "Email", Value: user.Email},
+			{Key: "Tags", Value: user.Tags},
 		}},
 	}
 

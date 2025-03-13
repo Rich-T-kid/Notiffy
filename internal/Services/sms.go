@@ -311,12 +311,14 @@ func (s *SMSNotification) UpdateRegistration(ctx context.Context, userInfo Valid
 	if !exist {
 		return fmt.Errorf("user %s must already exist before atempty to update their registration ", user.Name) //ErrUserMustExist(user.Name)
 	}
-
+	user.Tags = addifNotexist("SMS", user.Tags)
+	fmt.Printf("Passed object thats going to be sent to mongodb %+v\n", userInfo)
 	collection := s.db.Collection("SMS")
 	filter := bson.D{{Key: "Name", Value: user.Name}}
 	update := bson.D{
-		{Key: "$pull", Value: bson.D{
-			{Key: "Tags", Value: bson.M{"$in": subcategories}},
+		{Key: "$set", Value: bson.D{
+			{Key: "Contact", Value: user.Contact},
+			{Key: "Tags", Value: user.Tags},
 		}},
 	}
 

@@ -138,11 +138,12 @@ func (gsrv *GServer) UnregisterSMS(ctx context.Context, in *protobuff.SMSRegiste
 	}, nil
 }
 
-// This doesnt work as expected.
-// TODO:Fix the sms implementation. the new struct should overwrite the old not remove the tags
+// Works
 func (gsrv *GServer) UpdateSMSRegistration(ctx context.Context, in *protobuff.SMSRegisterInfo) (*protobuff.BasicResponse, error) {
 	newTags := stringtoTags(in.Tags.Topics)
+	fmt.Printf("Raw object passed in %v tags passed in %s tags to string %s\n", in, in.Tags.Topics, newTags)
 	smsr := services.NewSMSRegister(in.Name, in.ContactNumber, newTags)
+	fmt.Printf("sms register object %+v\n", smsr)
 	if err := gsrv.smsRegister.UpdateRegistration(ctx, smsr, newTags); err != nil {
 		return &protobuff.BasicResponse{
 			Message: FailedOperation,
@@ -228,14 +229,16 @@ func (gsrv *GServer) UnregisterEmail(ctx context.Context, in *protobuff.EmailReg
 	}, nil
 }
 
-// Same issue as the the SMS update, tags arent being updated properly
+// Works
 func (gsrv *GServer) UpdateEmailRegistration(ctx context.Context, in *protobuff.EmailRegisterInfo) (*protobuff.BasicResponse, error) {
 	newTags := stringtoTags(in.Tags.Topics)
+	fmt.Printf("Raw object passed in %v tags passed in %s tags to string %s\n", in, in.Tags.Topics, newTags)
 	emailrgst := &services.EmailReigisterInfo{
 		Name:  in.Name,
 		Email: in.Email,
 		Tags:  newTags,
 	}
+	fmt.Printf("emailRegist object %v\n", emailrgst)
 	if err := gsrv.emailRegister.UpdateRegistration(ctx, emailrgst, emailrgst.Tags); err != nil {
 		return &protobuff.BasicResponse{
 			Message: FailedOperation,

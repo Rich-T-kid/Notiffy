@@ -36,7 +36,7 @@ func NewMailRegister() UserService {
 type EmailReigisterInfo struct {
 	Name  string `bson:"Name"`
 	Email string `bson:"Email"`
-	Tags  tags   `bson:"Tags"`
+	Tags  Tags   `bson:"Tags"`
 }
 
 func (e *EmailReigisterInfo) Validate() error {
@@ -63,13 +63,13 @@ type Mailer struct {
 }
 type Mailbody struct {
 	Subject  string // I.E Subject
-	MailList tags
+	MailList Tags
 	Body     string
 	To       string // Recipiant
 }
 
 // MessageMeta
-func (m *Mailbody) Tags() tags       { return m.MailList }
+func (m *Mailbody) Tags() Tags       { return m.MailList }
 func (m *Mailbody) Priority() int    { return 1 }
 func (m *Mailbody) Timestamp() int64 { return time.Now().Unix() }
 func (m *Mailbody) Title() string    { return m.Subject }
@@ -91,7 +91,7 @@ func NewMailer() *Mailer {
 		db:             mongodb,
 	}
 }
-func DefineMail(subject, body, to string, topics tags) *Mailbody {
+func DefineMail(subject, body, to string, topics Tags) *Mailbody {
 	return &Mailbody{
 		Subject:  subject,
 		MailList: topics,
@@ -198,7 +198,8 @@ func (r *register) ListUsers(filter Filter) ([]string, error) {
 
 	var filteredUsers []string
 	for _, user := range results {
-		if filter(context.TODO(), user) {
+		// filter based on tag
+		if filter(context.TODO(), TagToString(user.Tags)) {
 			filteredUsers = append(filteredUsers, user.Name)
 		}
 	}
@@ -248,7 +249,7 @@ func (m *Mailer) Notify(ctx context.Context, body Messenger, filter Filter) (int
 
 	var toNotify []EmailReigisterInfo
 	for _, user := range users {
-		if filter(ctx, user) {
+		if filter(ctx, TagToString(user.Tags)) {
 			toNotify = append(toNotify, user)
 		}
 	}

@@ -50,7 +50,7 @@ type NotificationServiceClient interface {
 	UpdateSMSRegistration(ctx context.Context, in *SMSRegisterInfo, opts ...grpc.CallOption) (*BasicResponse, error)
 	// notification related
 	SMSNotify(ctx context.Context, in *SMSNotifyRequest, opts ...grpc.CallOption) (*NotifyResponse, error)
-	SMSSendDirectMessage(ctx context.Context, in *SMSNotifyRequest, opts ...grpc.CallOption) (*ErrorArray, error)
+	SMSSendDirectMessage(ctx context.Context, in *SMSSendDirectRequest, opts ...grpc.CallOption) (*ErrorArray, error)
 	// Email Methods
 	RegisterEmail(ctx context.Context, in *EmailRegisterInfo, opts ...grpc.CallOption) (*BasicResponse, error)
 	UnregisterEmail(ctx context.Context, in *EmailRegisterInfo, opts ...grpc.CallOption) (*BasicResponse, error)
@@ -128,7 +128,7 @@ func (c *notificationServiceClient) SMSNotify(ctx context.Context, in *SMSNotify
 	return out, nil
 }
 
-func (c *notificationServiceClient) SMSSendDirectMessage(ctx context.Context, in *SMSNotifyRequest, opts ...grpc.CallOption) (*ErrorArray, error) {
+func (c *notificationServiceClient) SMSSendDirectMessage(ctx context.Context, in *SMSSendDirectRequest, opts ...grpc.CallOption) (*ErrorArray, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ErrorArray)
 	err := c.cc.Invoke(ctx, NotificationService_SMSSendDirectMessage_FullMethodName, in, out, cOpts...)
@@ -203,7 +203,7 @@ type NotificationServiceServer interface {
 	UpdateSMSRegistration(context.Context, *SMSRegisterInfo) (*BasicResponse, error)
 	// notification related
 	SMSNotify(context.Context, *SMSNotifyRequest) (*NotifyResponse, error)
-	SMSSendDirectMessage(context.Context, *SMSNotifyRequest) (*ErrorArray, error)
+	SMSSendDirectMessage(context.Context, *SMSSendDirectRequest) (*ErrorArray, error)
 	// Email Methods
 	RegisterEmail(context.Context, *EmailRegisterInfo) (*BasicResponse, error)
 	UnregisterEmail(context.Context, *EmailRegisterInfo) (*BasicResponse, error)
@@ -239,7 +239,7 @@ func (UnimplementedNotificationServiceServer) UpdateSMSRegistration(context.Cont
 func (UnimplementedNotificationServiceServer) SMSNotify(context.Context, *SMSNotifyRequest) (*NotifyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SMSNotify not implemented")
 }
-func (UnimplementedNotificationServiceServer) SMSSendDirectMessage(context.Context, *SMSNotifyRequest) (*ErrorArray, error) {
+func (UnimplementedNotificationServiceServer) SMSSendDirectMessage(context.Context, *SMSSendDirectRequest) (*ErrorArray, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SMSSendDirectMessage not implemented")
 }
 func (UnimplementedNotificationServiceServer) RegisterEmail(context.Context, *EmailRegisterInfo) (*BasicResponse, error) {
@@ -387,7 +387,7 @@ func _NotificationService_SMSNotify_Handler(srv interface{}, ctx context.Context
 }
 
 func _NotificationService_SMSSendDirectMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SMSNotifyRequest)
+	in := new(SMSSendDirectRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func _NotificationService_SMSSendDirectMessage_Handler(srv interface{}, ctx cont
 		FullMethod: NotificationService_SMSSendDirectMessage_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NotificationServiceServer).SMSSendDirectMessage(ctx, req.(*SMSNotifyRequest))
+		return srv.(NotificationServiceServer).SMSSendDirectMessage(ctx, req.(*SMSSendDirectRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

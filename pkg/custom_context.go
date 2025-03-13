@@ -24,6 +24,9 @@ func ContextWithRequestID() context.Context {
 	ctx = context.WithValue(ctx, StartTime{}, time.Now())
 	return ctx
 }
+func ConstantTimeFormat() string {
+	return "02 Jan 06 15:04 MST"
+}
 
 /*
 provides more context for debugging

@@ -1,4 +1,4 @@
-
+#!/bin/sh
 
 # Start gRPC server in the background
 ./grpc_server &

@@ -17,7 +17,7 @@ service NotificationService{
     rpc UpdateSMSRegistration(SMSRegisterInfo) returns (BasicResponse){}
     // notification related
     rpc SMSNotify(SMSNotifyRequest) returns (NotifyResponse){}
-    rpc SMSSendDirectMessage(SMSNotifyRequest) returns (ErrorArray){}
+    rpc SMSSendDirectMessage(SMSSendDirectRequest) returns (ErrorArray){}
 
     // Email Methods
     rpc RegisterEmail(EmailRegisterInfo) returns (BasicResponse){}
@@ -46,7 +46,7 @@ message ErrorArray{
 // req-resp specific
 message SMSNotifyRequest{
     TextMessage message = 1;
-    repeated Tags tags= 2;
+    Tags tags= 2;
 }
 message NotifyResponse {
     int64 notified = 1;              // Number of successful notifications
@@ -65,14 +65,15 @@ message EmailNotifyRequest{
 message EmailSendDirectRequest{
     MailBody message = 1;
     string from = 2;
-    repeated string recipients = 3;
+    // these recipients must already be registered and present in the database
+    repeated string recipient_user_names = 3;
 }
 // SMS
 // go Struct: ReigsterInfo
 message SMSRegisterInfo{
     string name = 1;
     int64 contact_number = 2;
-    repeated Tags tags = 3;
+    Tags tags = 3;
 }
 // go Struct: SMSBody
 message TextMessage {
@@ -81,9 +82,8 @@ message TextMessage {
     string message = 3;
     Tags tags = 4;
 }
-
 message Tags{
-    string name = 1;// sms/email/soccer ,ect
+    repeated string topics = 1;// sms/email/soccer ,ect
 }
 // textbelt status
 enum TXTStatus{
@@ -99,12 +99,12 @@ enum TXTStatus{
 message EmailRegisterInfo {
     string name= 1;
     string email = 2;
-    repeated Tags tags = 3;
+    Tags tags = 3;
 }
 // go struct : Mailbody
 message MailBody{
     string subject = 1;
     string body = 2;
     string to = 3;
-    repeated Tags tags = 4;
+    Tags tags = 4;
 }

@@ -9,7 +9,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	grpcService "github.com/Rich-T-kid/Notiffy/api/grpc/protobuff"
+	grpcService "github.com/Rich-T-kid/Notiffy/api/grpc"
+	"github.com/Rich-T-kid/Notiffy/api/grpc/protobuff"
 	_ "github.com/Rich-T-kid/Notiffy/internal/enviroment" // this package needs to always to be run first b4 all other custom packages
 )
 
@@ -24,7 +25,7 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcService.UnaryInterceptor))
 
-	grpcService.RegisterNotificationServiceServer(grpcServer, serverImplementation)
+	protobuff.RegisterNotificationServiceServer(grpcServer, serverImplementation)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {

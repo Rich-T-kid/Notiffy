@@ -1,7 +1,7 @@
 outDirectory = protobuff
 protoFile = notify.proto
-client = client.go
-server = server.go
+#client = client.go
+#server = server.go
 
 generate:
 	mkdir -p $(outDirectory)
@@ -9,7 +9,7 @@ generate:
 	protoc --go_out=$(outDirectory) --go-grpc_out=$(outDirectory) --proto_path=. $(protoFile)
 
 	# Create Go client and server files if they don't already exist
-	touch $(outDirectory)/$(client)
+#	touch $(outDirectory)/$(client)
 	touch $(outDirectory)/$(server)
 	
 clean:

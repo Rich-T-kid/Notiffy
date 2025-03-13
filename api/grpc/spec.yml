@@ -1,0 +1,357 @@
+openapi: 3.0.0
+info:
+  title: Notification Service API
+  description: API for managing SMS and Email notifications.
+  version: 1.0.0
+
+servers:
+  - url: http://TBD:50051
+    description: Local server
+
+paths:
+  /health-check:
+    get:
+      summary: Health Check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthCheckResponse"
+
+  /users:
+    post:
+      summary: List registered users for a given tag
+      operationId: listUsers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Tags"
+      responses:
+        "200":
+          description: List of registered users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+
+  /sms/register:
+    post:
+      summary: Register a user for SMS notifications
+      operationId: registerSMS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SMSRegisterInfo"
+      responses:
+        "200":
+          description: Registration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicResponse"
+
+  /sms/unregister:
+    post:
+      summary: Unregister a user from SMS notifications
+      operationId: unregisterSMS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SMSRegisterInfo"
+      responses:
+        "200":
+          description: Unregistration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicResponse"
+
+  /sms/update:
+    post:
+      summary: Update an SMS registration
+      operationId: updateSMSRegistration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SMSRegisterInfo"
+      responses:
+        "200":
+          description: Update status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicResponse"
+
+  /sms/notify:
+    post:
+      summary: Send an SMS notification to users
+      operationId: smsNotify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SMSNotifyRequest"
+      responses:
+        "200":
+          description: Notification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotifyResponse"
+
+  /sms/send:
+    post:
+      summary: Send a direct SMS message
+      operationId: smsSendDirectMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SMSSendDirectRequest"
+      responses:
+        "200":
+          description: Direct message send result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorArray"
+
+  /email/register:
+    post:
+      summary: Register a user for Email notifications
+      operationId: registerEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRegisterInfo"
+      responses:
+        "200":
+          description: Registration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicResponse"
+
+  /email/unregister:
+    post:
+      summary: Unregister a user from Email notifications
+      operationId: unregisterEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRegisterInfo"
+      responses:
+        "200":
+          description: Unregistration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicResponse"
+
+  /email/update:
+    post:
+      summary: Update an Email registration
+      operationId: updateEmailRegistration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRegisterInfo"
+      responses:
+        "200":
+          description: Update status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicResponse"
+
+  /email/notify:
+    post:
+      summary: Send an Email notification to users
+      operationId: emailNotify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailNotifyRequest"
+      responses:
+        "200":
+          description: Notification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotifyResponse"
+
+  /email/send:
+    post:
+      summary: Send a direct Email message
+      operationId: emailSendDirectMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailSendDirectRequest"
+      responses:
+        "200":
+          description: Direct message send result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorArray"
+
+components:
+  schemas:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: e.g., "ok", "healthy", "running"
+
+    BasicResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        status:
+          type: integer
+
+    UserListResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            type: string
+
+    ErrorArray:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+
+    SMSRegisterInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        contact_number:
+          type: integer
+        tags:
+          $ref: "#/components/schemas/Tags"
+
+    SMSNotifyRequest:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/TextMessage"
+        tags:
+          $ref: "#/components/schemas/Tags"
+
+    SMSSendDirectRequest:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/TextMessage"
+        from:
+          type: string
+        recipients:
+          type: array
+          items:
+            type: string
+
+    EmailRegisterInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        tags:
+          $ref: "#/components/schemas/Tags"
+
+    EmailNotifyRequest:
+      type: object
+      properties:
+        body:
+          $ref: "#/components/schemas/MailBody"
+        tags:
+          $ref: "#/components/schemas/Tags"
+
+    EmailSendDirectRequest:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/MailBody"
+        from:
+          type: string
+        recipient_user_names:
+          type: array
+          items:
+            type: string
+
+    TextMessage:
+      type: object
+      properties:
+        number:
+          type: string
+        title:
+          type: string
+        message:
+          type: string
+        tags:
+          $ref: "#/components/schemas/Tags"
+
+    MailBody:
+      type: object
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        to:
+          type: string
+        tags:
+          $ref: "#/components/schemas/Tags"
+
+    Tags:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            type: string
+    NotifyResponse:
+      type: object
+      properties:
+        notified:
+          type: integer
+          format: int64
+          description: Number of successful notifications
+        errors:
+          type: array
+          items:
+            type: string
+          description: Array of error messages

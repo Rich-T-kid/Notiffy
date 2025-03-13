@@ -16,12 +16,16 @@ var (
 type RequestIDKey struct{}
 type StartTime struct{}
 
+// for http
 func ContextWithRequestID() context.Context {
 	requestUUID := uuid.NewString()
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, RequestIDKey{}, requestUUID)
 	ctx = context.WithValue(ctx, StartTime{}, time.Now())
 	return ctx
+}
+func ConstantTimeFormat() string {
+	return "02 Jan 06 15:04 MST"
 }
 
 /*

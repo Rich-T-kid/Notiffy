@@ -29,14 +29,14 @@ const (
 func NewMailNotiffyer() NotificationService {
 	return NewMailer()
 }
-func newMailRegister() UserService {
+func NewMailRegister() UserService {
 	return NewMailer()
 }
 
 type EmailReigisterInfo struct {
 	Name  string `bson:"Name"`
 	Email string `bson:"Email"`
-	Tags  tags   `bson:"Tags"`
+	Tags  Tags   `bson:"Tags"`
 }
 
 func (e *EmailReigisterInfo) Validate() error {
@@ -63,13 +63,13 @@ type Mailer struct {
 }
 type Mailbody struct {
 	Subject  string // I.E Subject
-	MailList tags
+	MailList Tags
 	Body     string
 	To       string // Recipiant
 }
 
 // MessageMeta
-func (m *Mailbody) Tags() tags       { return m.MailList }
+func (m *Mailbody) Tags() Tags       { return m.MailList }
 func (m *Mailbody) Priority() int    { return 1 }
 func (m *Mailbody) Timestamp() int64 { return time.Now().Unix() }
 func (m *Mailbody) Title() string    { return m.Subject }
@@ -91,7 +91,7 @@ func NewMailer() *Mailer {
 		db:             mongodb,
 	}
 }
-func DefineMail(subject, body, to string, topics tags) *Mailbody {
+func DefineMail(subject, body, to string, topics Tags) *Mailbody {
 	return &Mailbody{
 		Subject:  subject,
 		MailList: topics,
@@ -164,11 +164,14 @@ func (r *register) UpdateRegistration(ctx context.Context, userInfo Validator, s
 		return fmt.Errorf("user %s must already exist before atempty to update their registration ", user.Name) //ErrUserMustExist(user.Name)
 		//return ErrUserMustExist(user.Name)
 	}
+	user.Tags = addifNotexist("EMAIL", user.Tags)
+	fmt.Printf("Passed object thats going to be sent to mongodb %+v\n", userInfo)
 	collection := r.db.Collection("EMAIL")
 	filter := bson.D{{Key: "Name", Value: user.Name}}
 	update := bson.D{
-		{Key: "$pull", Value: bson.D{
-			{Key: "Tags", Value: bson.M{"$in": subcategories}},
+		{Key: "$set", Value: bson.D{
+			{Key: "Email", Value: user.Email},
+			{Key: "Tags", Value: user.Tags},
 		}},
 	}
 
@@ -198,7 +201,8 @@ func (r *register) ListUsers(filter Filter) ([]string, error) {
 
 	var filteredUsers []string
 	for _, user := range results {
-		if filter(context.TODO(), user) {
+		// filter based on tag
+		if filter(context.TODO(), TagToString(user.Tags)) {
 			filteredUsers = append(filteredUsers, user.Name)
 		}
 	}
@@ -248,7 +252,7 @@ func (m *Mailer) Notify(ctx context.Context, body Messenger, filter Filter) (int
 
 	var toNotify []EmailReigisterInfo
 	for _, user := range users {
-		if filter(ctx, user) {
+		if filter(ctx, TagToString(user.Tags)) {
 			toNotify = append(toNotify, user)
 		}
 	}

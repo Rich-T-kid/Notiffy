@@ -1,6 +1,9 @@
 package services
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // This is for the broad Push notifications. So notifying Users all at once
 // Keep minimal
@@ -24,7 +27,7 @@ var ValidTags = []Tag{
 }
 
 type Filter func(ctx context.Context, input ...interface{}) bool // way to filter out who to notify
-type tags []Tag                                                  // assign user to sub categories, this can be used later for filtering
+type Tags []Tag                                                  // assign user to sub categories, this can be used later for filtering
 
 // Validator is any struct that has a Validate method. Used to validate its self that it has proper values that wont damage the database
 type Validator interface {
@@ -71,7 +74,7 @@ type MessageBody interface {
 }
 
 type MessageMeta interface {
-	Tags() tags       // Optional tags for filtering
+	Tags() Tags       // Optional tags for filtering
 	Priority() int    // Priority of the message (e.g., 1 = High, 5 = Low)
 	Timestamp() int64 // Unix timestamp for message scheduling
 	Title() string
@@ -80,17 +83,38 @@ type MessageMeta interface {
 
 /*
 TO be done later dont go crazy implentating stuff youll never need. start with the minimal first
-type Notifyer interface {
-	Notify()
-}
-type UserNotification interface {
-	Scheduler
-}
 
+	type Notifyer interface {
+		Notify()
+	}
 
-type Scheduler interface {
-	Schedule(ctx context.Context, method Notifyer, message Messenger, timestamp int64) error
-	Cancel(ctx context.Context, messageID string) error
-	ListScheduled(ctx context.Context) ([]Messenger, error)
-}
+	type UserNotification interface {
+		Scheduler
+	}
+
+	type Scheduler interface {
+		Schedule(ctx context.Context, method Notifyer, message Messenger, timestamp int64) error
+		Cancel(ctx context.Context, messageID string) error
+		ListScheduled(ctx context.Context) ([]Messenger, error)
+	}
 */
+func TagToString(tags Tags) []string {
+	var result []string
+	for i := range tags {
+		result = append(result, string(tags[i]))
+	}
+	return result
+}
+func addifNotexist(tag string, tags []Tag) []Tag {
+
+	for i := range tags {
+		if tags[i] == Tag(tag) {
+			// if it already exist break early
+			return tags
+		}
+	}
+	fmt.Println("Final tags -> ", tags)
+	// otherwise append to tags
+	tags = append(tags, Tag(tag))
+	return tags
+}

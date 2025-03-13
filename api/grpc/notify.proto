@@ -1,0 +1,110 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+package NotificationGRPC;
+
+
+option go_package = ".";
+
+service NotificationService{
+    // Simple health check method
+    rpc HealthCheck(google.protobuf.Empty) returns (HealthCheckResponse);
+    // Service agnostic Methods
+    rpc ListUsers(Tags) returns (UserListResponse){}// works for both sms and Email. {pass in SMS or EMAIL tags}
+    // SMS methods
+    //registration
+    rpc RegisterSMS(SMSRegisterInfo) returns (BasicResponse){}
+    rpc UnregisterSMS(SMSRegisterInfo) returns (BasicResponse){}
+    rpc UpdateSMSRegistration(SMSRegisterInfo) returns (BasicResponse){}
+    // notification related
+    rpc SMSNotify(SMSNotifyRequest) returns (NotifyResponse){}
+    rpc SMSSendDirectMessage(SMSSendDirectRequest) returns (ErrorArray){}
+
+    // Email Methods
+    rpc RegisterEmail(EmailRegisterInfo) returns (BasicResponse){}
+    rpc UnregisterEmail(EmailRegisterInfo) returns (BasicResponse){}
+    rpc UpdateEmailRegistration(EmailRegisterInfo) returns (BasicResponse){}
+    // notification related
+    rpc EmailNotify(EmailNotifyRequest) returns (NotifyResponse){}
+    rpc EmailSendDirectMessage(EmailSendDirectRequest) returns (ErrorArray){}
+}
+// use this for when the function generally shouldnt fail and a basic status and message is enough context
+// generic for both emails and sms
+message HealthCheckResponse {
+    string status = 1; // e.g., "ok", "healthy", "running"
+}
+message BasicResponse {
+    string message  = 1;
+    int32 status = 2;
+}
+message UserListResponse {
+    repeated string users = 1;
+}
+message ErrorArray{
+    repeated string errors = 1;      // Array of error messages
+
+}
+// req-resp specific
+message SMSNotifyRequest{
+    TextMessage message = 1;
+    Tags tags= 2;
+}
+message NotifyResponse {
+    int64 notified = 1;              // Number of successful notifications
+    repeated string errors = 2;      // Array of error messages
+}
+message SMSSendDirectRequest{
+    TextMessage message = 1;
+    string from = 2;
+    repeated string recipients = 3;
+}
+
+message EmailNotifyRequest{
+    MailBody body = 1;
+    Tags tags = 2;
+}
+message EmailSendDirectRequest{
+    MailBody message = 1;
+    string from = 2;
+    // these recipients must already be registered and present in the database
+    repeated string recipient_user_names = 3;
+}
+// SMS
+// go Struct: ReigsterInfo
+message SMSRegisterInfo{
+    string name = 1;
+    int64 contact_number = 2;
+    Tags tags = 3;
+}
+// go Struct: SMSBody
+message TextMessage {
+    string number = 1;
+    string title= 2;
+    string message = 3;
+    Tags tags = 4;
+}
+message Tags{
+    repeated string topics = 1;// sms/email/soccer ,ect
+}
+// textbelt status
+enum TXTStatus{
+    DELIVERED = 0;
+    SENT = 1;
+    SENDING = 2;
+    FAILED = 3;
+    UNKNOWN = 4;
+}
+
+// Email
+// go struct :  EmailRegisterInfo
+message EmailRegisterInfo {
+    string name= 1;
+    string email = 2;
+    Tags tags = 3;
+}
+// go struct : Mailbody
+message MailBody{
+    string subject = 1;
+    string body = 2;
+    string to = 3;
+    Tags tags = 4;
+}

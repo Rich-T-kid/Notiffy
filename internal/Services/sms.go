@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -55,11 +54,19 @@ type RegisterINFO struct {
 	Tags    []Tag  `bson:"Tags"`
 }
 
+func NewSMSRegister(name string, contact int64, tags []Tag) *RegisterINFO {
+	return &RegisterINFO{
+		Name:    name,
+		Contact: contact,
+		Tags:    tags,
+	}
+}
+
 // in the future i could have this struct be composed of sub-structs but for now thats not needed
 type SMSBody struct {
 	from       string
 	title      string
-	categories tags
+	categories Tags
 	mainText   string
 }
 
@@ -72,7 +79,7 @@ func (s *SMSBody) Type() string          { return "sms" }
 func (s *SMSBody) Content() interface{} { return s.mainText } // actuall text to be sent to reciever
 
 // Message Metadata interface
-func (s *SMSBody) Tags() tags       { return s.categories } // target of broadcast message
+func (s *SMSBody) Tags() Tags       { return s.categories } // target of broadcast message
 func (s *SMSBody) Priority() int    { return 1 }            // for now this is hardcoded as 1
 func (s *SMSBody) Timestamp() int64 { return time.Now().Unix() }
 func (s *SMSBody) Title() string    { return s.title }
@@ -80,7 +87,6 @@ func (s *SMSBody) From() string     { return s.from }
 
 type SMSNotification struct {
 	apiKey string
-	saver  db.Storage
 	db     *mongo.Database // store as mongo collection for now
 }
 type textBeltMSGresponse struct {
@@ -93,7 +99,7 @@ func DefineMessage(from, title, text string) *SMSBody {
 	return &SMSBody{
 		from:       from,
 		title:      title,
-		categories: tags{"sms"},
+		categories: Tags{"SMS"}, //already add this in the register
 		mainText:   text,
 	}
 }
@@ -109,7 +115,7 @@ func NewSMSNotification() *SMSNotification {
 	apikey := os.Getenv("TEXTBELT_API_KEY")
 	// defensive programing :)
 	if apikey == "" {
-		log.Fatal("textbelt api key missing")
+		panic("textbelt api key missing")
 	}
 	return &SMSNotification{
 		apiKey: apikey,
@@ -151,7 +157,7 @@ func (s *SMSNotification) Notify(ctx context.Context, body Messenger, filter Fil
 	logger.Info(fmt.Sprintf("requestId: %s all users in database %v", requestid, res))
 	var toNotify []RegisterINFO
 	for _, i := range res {
-		if filter(ctx, i) {
+		if filter(ctx, TagToString(i.Tags)) {
 			toNotify = append(toNotify, i)
 		}
 	}
@@ -224,9 +230,15 @@ func (s *SMSNotification) Start(ctx context.Context) error {
 		logger.Critical("context request ID is not present when it should be!")
 		return pkg.ErrMissingRequestID
 	}
-	_, err := s.quota()
+	c, err := s.quota()
 	fmt.Printf("requestId: %s has began the SMSNotification service\n", requestid)
-	return err
+	if err != nil {
+		return err
+	}
+	if c < 10 {
+		return fmt.Errorf("check textbelt credits we have less than 10 requests left. exact count %d", c)
+	}
+	return nil
 }
 
 // add to db.SMS collection. for now these all go under the same Mangager(person users register under for notification) but when we build an external api we should take that in
@@ -299,12 +311,14 @@ func (s *SMSNotification) UpdateRegistration(ctx context.Context, userInfo Valid
 	if !exist {
 		return fmt.Errorf("user %s must already exist before atempty to update their registration ", user.Name) //ErrUserMustExist(user.Name)
 	}
-
+	user.Tags = addifNotexist("SMS", user.Tags)
+	fmt.Printf("Passed object thats going to be sent to mongodb %+v\n", userInfo)
 	collection := s.db.Collection("SMS")
 	filter := bson.D{{Key: "Name", Value: user.Name}}
 	update := bson.D{
-		{Key: "$pull", Value: bson.D{
-			{Key: "Tags", Value: bson.M{"$in": subcategories}},
+		{Key: "$set", Value: bson.D{
+			{Key: "Contact", Value: user.Contact},
+			{Key: "Tags", Value: user.Tags},
 		}},
 	}
 
@@ -334,7 +348,7 @@ func (s *SMSNotification) ListUsers(filter Filter) ([]string, error) {
 
 	var filteredUsers []string
 	for _, user := range results {
-		if filter(context.TODO(), user.Name, user.Tags) {
+		if filter(context.TODO(), TagToString(user.Tags)) {
 			filteredUsers = append(filteredUsers, user.Name)
 		}
 	}
